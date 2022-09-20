@@ -3,10 +3,12 @@ package build
 import (
 	"bytes"
 	"encoding/binary"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"math"
+	"os"
 	"strings"
-	"errors"
 )
 
 type Stmt struct {
@@ -15,11 +17,28 @@ type Stmt struct {
 	ParamCount uint16
 	FieldCount uint16
 
-	Args []interface{}
+	Args  []interface{}
+	Param []string
 }
 
 func (stmt *Stmt) WriteToText() []byte {
 
+	if strings.ToLower(os.Getenv("GO_SNIFFER_MYSQL_JSON")) == "on" {
+		stmt.Param = make([]string, len(stmt.Args))
+		for k := range stmt.Args {
+			if s, ok := stmt.Args[k].(string); ok {
+				stmt.Param[k] = s
+				continue
+			}
+			if s, ok := stmt.Args[k].([]byte); ok {
+				stmt.Param[k] = string(s)
+				continue
+			}
+			stmt.Param[k] = fmt.Sprintf("%v", stmt.Args[k])
+		}
+		b, _ := json.Marshal(stmt)
+		return b
+	}
 	var buf bytes.Buffer
 
 	str := fmt.Sprintf("Stm id[%d]: '%s';\n", stmt.ID, stmt.Query)
